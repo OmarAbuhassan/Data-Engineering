@@ -51,9 +51,6 @@ Rows that pass are transformed: trimmed text, upper-case codes, and new `Invoice
 - The UK accounts for 82% of revenue.
 - **Champions** are 8% of customers (333) but bring **49%** of revenue. At Risk customers bring 4%.
 
-| Monthly revenue | Customer segments |
-|---|---|
-| ![](images/monthly_revenue.png) | ![](images/customer_segments.png) |
 
 ## Technologies Used
 Python · PySpark · Delta Lake (`delta-spark`) · Loguru · Matplotlib · Google Colab
