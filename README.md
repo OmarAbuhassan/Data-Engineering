@@ -15,24 +15,26 @@ An online gift shop's raw sales export contains cancellations, missing customers
 ![architecture](images/architecture.png)
 
 1. **Ingestion:** batch (`data.csv` → `landing_zone/` → Spark) plus a streaming simulation (Producer → Broker → Processor → Delta).
-2. **Data Quality Engine** (Spark) builds a JSON quality report.
-3. **Quality Gate:** FAIL sends the batch and its report to `quarantine_zone/`. PASS writes it to the Delta table `lakehouse/trusted_sales`.
-4. **Transformation** (raw → clean) is re-checked by the same engine.
-5. **Analytics** run on the trusted table, and the results are saved as gold Delta tables.
+2. **Data Quality Engine** (Spark) checks every row, records the rules each row failed in `dq_errors`, and builds a JSON quality report.
+3. **Quality Gate** splits the rows. Failed rows go to `quarantine_zone/` with their reasons and the report. Passed rows are transformed and written to the Delta table `lakehouse/trusted_sales`.
+4. **Analytics** run on the trusted table, and the results are saved as gold Delta tables.
 
 ## Data Quality Checks
-| Dimension | Rule | Raw batch | Clean batch |
-|---|---|---|---|
-| Completeness | `CustomerID` not null | 135,080 ❌ | 0 ✅ |
-| Completeness | `Description` not null | 1,454 ❌ | 0 ✅ |
-| Accuracy | `Quantity > 0` | 10,624 ❌ | 0 ✅ |
-| Accuracy | `UnitPrice > 0` | 2,517 ❌ | 0 ✅ |
-| Uniqueness | no duplicate rows | 5,268 ❌ | 0 ✅ |
-| Validity | `InvoiceNo` matches `^\d{6}$` | 9,291 ❌ | 0 ✅ |
-| Validity | `StockCode` matches `^\d{5}[A-Za-z]*$` | 2,995 ❌ | 0 ✅ |
-| **Gate** | | **FAIL → Quarantine** | **PASS → Delta** |
+A row fails if it breaks any of these rules:
 
-The transformation also removes sales that were later cancelled (same customer, product and quantity), and adds `InvoiceTimestamp`, `InvoiceMonth` and `Revenue`.
+| Dimension | Rule | Failed rows |
+|---|---|---|
+| Completeness | `CustomerID` is null | 135,080 |
+| Completeness | `Description` is null | 1,454 |
+| Accuracy | `Quantity <= 0` | 10,624 |
+| Accuracy | `UnitPrice <= 0` | 2,517 |
+| Accuracy | sale was cancelled later | 5,563 |
+| Uniqueness | duplicate of an earlier row | 5,268 |
+| Validity | `InvoiceNo` doesn't match `^\d{6}$` | 9,291 |
+| Validity | `StockCode` doesn't match `^\d{5}[A-Za-z]*$` | 2,995 |
+| **Gate** | **PASS: 385,929 rows → Delta · FAIL: 155,980 rows → Quarantine** | |
+
+Rows that pass are transformed: trimmed text, upper-case codes, and new `InvoiceTimestamp`, `InvoiceMonth` and `Revenue` columns.
 
 ## Analytics Output
 - KPIs: revenue, orders, customers, products, average order value
@@ -42,7 +44,7 @@ The transformation also removes sales that were later cancelled (same customer, 
 - RFM customer segments (Champions, Loyal, New/Recent, Regular, At Risk)
 
 ## Results
-- 541,909 raw rows give **385,929 trusted rows** (28.8% removed).
+- 541,909 raw rows: **385,929 passed** to Delta, **155,980 failed** to quarantine (28.8%).
 - Streaming: 7 events stored, 2 rejected (one cancellation, one with a missing customer and price 0).
 - Trusted revenue: **£8.2M** from 18,162 orders and 4,321 customers. Average order value is £451.
 - November 2011 is the peak month (£1.11M). December 2011 only covers 1–9 Dec.
@@ -62,8 +64,7 @@ Python · PySpark · Delta Lake (`delta-spark`) · Loguru · Matplotlib · Googl
 
 ## Future Improvements
 - Use real Kafka and Spark Structured Streaming instead of the simulation.
-- Add row-level quarantine (keep the bad rows, pass the good ones).
-- Keep sales without a `CustomerID` in a separate revenue-only table.
+- Repair and replay quarantined rows, e.g. sales with a missing `CustomerID` for revenue-only reports.
 - Add incremental `MERGE` loads into Delta and schedule the pipeline (e.g. Airflow).
 - Connect a dashboard to the gold tables.
 
