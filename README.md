@@ -12,7 +12,7 @@ An online gift shop's raw sales export contains cancellations, missing customers
 [UCI Online Retail](https://archive.ics.uci.edu/dataset/352/online+retail): 541,909 transaction lines from Dec 2010 to Dec 2011, covering 38 countries. The file is `data.csv` (ISO-8859-1). It is not committed; download it and place it next to the notebook.
 
 ## Workflow / Architecture
-![architecture](images/architecture.png)
+![architecture](architecture.png)
 
 1. **Ingestion:** batch (`data.csv` → `landing_zone/` → Spark) plus a streaming simulation (Producer → Broker → Processor → Delta).
 2. **Data Quality Engine** (Spark) checks every row, records the rules each row failed in `dq_errors`, and builds a JSON quality report.
