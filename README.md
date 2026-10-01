@@ -70,3 +70,4 @@ Python · PySpark · Delta Lake (`delta-spark`) · Loguru · Matplotlib · Googl
 
 ## SDAIA Academy GitHub Repository Link
 <!-- add link here -->
+[link](https://github.com/SDAIAAcademy)
